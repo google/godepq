@@ -25,9 +25,9 @@ List the packages imported:
 ```
 $ godepq -from github.com/google/godepq
 Packages:
-  k8s.io/contrib/godepq
+  github.com/google/godepq
   flag
-  github.com/timstclair/godepq/pkg
+  github.com/google/godepq/pkg
   fmt
   os
   errors
