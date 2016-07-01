@@ -97,36 +97,13 @@ func validateFlags() {
 
 func printList(root Package, paths Graph) {
 	fmt.Println("Packages:")
-	paths.DepthLast(root, func(pkg Package, _ Set, _ Path) bool {
+	for _, pkg := range paths.List(root) {
 		fmt.Printf("  %s\n", pkg)
-		return true
-	})
+	}
 }
 
 func printDot(root Package, paths Graph) {
-	fmt.Println("digraph godeps {")
-
-	nextId := 0
-	ids := make(map[Package]int, len(paths))
-	getId := func(pkg Package) int {
-		if id, ok := ids[pkg]; ok {
-			return id
-		}
-		ids[pkg] = nextId
-		nextId++
-		return nextId - 1
-	}
-
-	paths.DepthFirst(root, func(pkg Package, edges Set, _ Path) bool {
-		pkgId := getId(pkg)
-		fmt.Printf("%d [label=\"%s\"];\n", pkgId, pkg)
-		for edge := range edges {
-			fmt.Printf("%d -> %d;\n", pkgId, getId(edge))
-		}
-		return true
-	})
-
-	fmt.Println("}")
+	fmt.Println(paths.Dot(root))
 }
 
 func handleError(err error) {

@@ -8,6 +8,11 @@ https://opensource.org/licenses/MIT.
 
 package pkg
 
+import (
+	"bytes"
+	"fmt"
+)
+
 type Graph map[Package]Set
 
 func NewGraph() Graph {
@@ -160,4 +165,42 @@ func (pg Graph) DepthLast(start Package, walkFn WalkFn) {
 			}
 		}
 	}
+}
+
+func (pg Graph) List(root Package) []Package {
+	var pkgs []Package
+	pg.DepthLast(root, func(pkg Package, _ Set, _ Path) bool {
+		pkgs = append(pkgs, pkg)
+		return true
+	})
+	return pkgs
+}
+
+func (pg Graph) Dot(root Package) string {
+	nextId := 0
+	ids := make(map[Package]int, len(pg))
+	getId := func(pkg Package) int {
+		if id, ok := ids[pkg]; ok {
+			return id
+		}
+		ids[pkg] = nextId
+		nextId++
+		return nextId - 1
+	}
+
+	var buf bytes.Buffer
+	buf.WriteString("digraph godeps {\n")
+
+	pg.DepthFirst(root, func(pkg Package, edges Set, _ Path) bool {
+		pkgId := getId(pkg)
+		fmt.Fprintf(&buf, "%d [label=\"%s\"];\n", pkgId, pkg)
+		for edge := range edges {
+			fmt.Fprintf(&buf, "%d -> %d;\n", pkgId, getId(edge))
+		}
+		return true
+	})
+
+	buf.WriteString("}\n")
+
+	return buf.String()
 }
