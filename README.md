@@ -16,14 +16,14 @@ Usage of godepq:
 ## Installation:
 
 ```
-$ go install k8s.io/contrib/godepq
+$ go install github.com/google/godepq
 ```
 
 ## Examples:
 
 List the packages imported:
 ```
-$ godepq -from k8s.io/contrib/godepq
+$ godepq -from github.com/google/godepq
 Packages:
   k8s.io/contrib/godepq
   flag
