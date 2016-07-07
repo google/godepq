@@ -16,7 +16,7 @@ Usage of godepq:
 ## Installation:
 
 ```
-$ go install github.com/google/godepq
+$ go get github.com/google/godepq
 ```
 
 ## Examples:
