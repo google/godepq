@@ -32,7 +32,19 @@ var (
 
 func main() {
 	flag.Parse()
-	validateFlags()
+
+	err := run()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	err := validateFlags()
+	if err != nil {
+		return err
+	}
 
 	builder := Builder{
 		Roots:         []Package{Package(*fromPkg)},
@@ -41,17 +53,23 @@ func main() {
 		BuildContext:  build.Default,
 	}
 	baseDir, err := os.Getwd()
-	handleError(err)
+	if err != nil {
+		return err
+	}
 	builder.BaseDir = baseDir
 
 	if *ignore != "" {
 		ignoreRegexp, err := regexp.Compile(*ignore)
-		handleError(err)
+		if err != nil {
+			return err
+		}
 		builder.Ignored = []*regexp.Regexp{ignoreRegexp}
 	}
 
 	deps, err := builder.Build()
-	handleError(err)
+	if err != nil {
+		return err
+	}
 
 	var result Graph
 	if *toPkg != "" {
@@ -74,25 +92,29 @@ func main() {
 	switch *output {
 	case "list":
 		printList(Package(*fromPkg), result)
+		return nil
 	case "dot":
 		printDot(Package(*fromPkg), result)
+		return nil
 	default:
-		handleError(fmt.Errorf("Unknown output format %q", *output))
+		return fmt.Errorf("Unknown output format %q", *output)
 	}
 }
 
-func validateFlags() {
+func validateFlags() error {
 	if *fromPkg == "" {
-		handleError(errors.New("-from must be set"))
+		return errors.New("-from must be set")
 	}
 
 	if *allPaths && *toPkg == "" {
-		handleError(errors.New("-all-paths requires a -to package"))
+		return errors.New("-all-paths requires a -to package")
 	}
 
 	if len(flag.Args()) != 0 {
-		handleError(fmt.Errorf("Unexpected positional arguments: %v", flag.Args()))
+		return fmt.Errorf("Unexpected positional arguments: %v", flag.Args())
 	}
+
+	return nil
 }
 
 func printList(root Package, paths Graph) {
@@ -104,11 +126,4 @@ func printList(root Package, paths Graph) {
 
 func printDot(root Package, paths Graph) {
 	fmt.Println(paths.Dot(root))
-}
-
-func handleError(err error) {
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
 }
