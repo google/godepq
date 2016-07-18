@@ -10,6 +10,7 @@ package pkg
 
 import (
 	"errors"
+	"fmt"
 	"go/build"
 	"log"
 	"regexp"
@@ -24,6 +25,17 @@ type Dependencies struct {
 
 type Condition func(Dependencies) bool
 
+// Resolve resolves import paths to a canonical, absolute form.
+// Relative paths are resolved relative to basePath.
+// It does not verify that the import is valid.
+func Resolve(importPath, basePath string, bctx build.Context) (string, error) {
+	pkg, err := bctx.Import(importPath, basePath, build.FindOnly)
+	if err != nil {
+		return "", fmt.Errorf("unable to resolve %q: %v", importPath, err)
+	}
+	return pkg.ImportPath, nil
+}
+
 type Builder struct {
 	// The base directory for relative imports.
 	BaseDir string
@@ -32,6 +44,7 @@ type Builder struct {
 	// Stop building the graph if ANY conditions are met.
 	TerminationConditions []Condition
 	// Ignore any packages that match any of these patterns.
+	// Tested on the resolved package path.
 	Ignored []*regexp.Regexp
 	// Whether tests should be included in the dependencies.
 	IncludeTests bool
@@ -88,6 +101,7 @@ func (b *Builder) addPackage(pkgName Package) error {
 	}
 
 	pkgFullName := Package(pkg.ImportPath)
+	log.Printf("Found %s -> %s", pkgName, pkgFullName)
 	if b.isIgnored(pkgFullName) {
 		b.deps.Ignored.Insert(pkgFullName)
 		return nil
