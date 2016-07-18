@@ -21,8 +21,8 @@ import (
 
 var (
 	// TODO: add support for multiple from / to packages
-	fromPkg       = flag.String("from", "", "root package")
-	toPkg         = flag.String("to", "", "target package for querying dependency paths")
+	from          = flag.String("from", "", "root package")
+	to            = flag.String("to", "", "target package for querying dependency paths")
 	ignore        = flag.String("ignore", "", "regular expression for packages to ignore")
 	includeTests  = flag.Bool("include-tests", false, "whether to include test imports")
 	includeStdlib = flag.Bool("include-stdlib", false, "whether to include go standard library imports")
@@ -46,17 +46,27 @@ func run() error {
 		return err
 	}
 
-	builder := Builder{
-		Roots:         []Package{Package(*fromPkg)},
-		IncludeTests:  *includeTests,
-		IncludeStdlib: *includeStdlib,
-		BuildContext:  build.Default,
-	}
-	baseDir, err := os.Getwd()
+	wd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
-	builder.BaseDir = baseDir
+
+	fromPkg, err := Resolve(*from, wd, build.Default)
+	if err != nil {
+		return err
+	}
+	toPkg, err := Resolve(*to, wd, build.Default)
+	if err != nil {
+		return err
+	}
+
+	builder := Builder{
+		Roots:         []Package{Package(fromPkg)},
+		IncludeTests:  *includeTests,
+		IncludeStdlib: *includeStdlib,
+		BuildContext:  build.Default,
+		BaseDir:       wd,
+	}
 
 	if *ignore != "" {
 		ignoreRegexp, err := regexp.Compile(*ignore)
@@ -72,11 +82,11 @@ func run() error {
 	}
 
 	var result Graph
-	if *toPkg != "" {
+	if toPkg != "" {
 		if *allPaths {
-			result = deps.Forward.AllPaths(Package(*fromPkg), Package(*toPkg))
+			result = deps.Forward.AllPaths(Package(fromPkg), Package(toPkg))
 		} else {
-			path := deps.Forward.SomePath(Package(*fromPkg), Package(*toPkg))
+			path := deps.Forward.SomePath(Package(fromPkg), Package(toPkg))
 			result = NewGraph()
 			result.AddPath(path)
 		}
@@ -85,16 +95,16 @@ func run() error {
 	}
 
 	if result == nil || len(result) == 0 {
-		fmt.Printf("No path found from %q to %q\n", *fromPkg, *toPkg)
+		fmt.Printf("No path found from %q to %q\n", fromPkg, toPkg)
 		os.Exit(1)
 	}
 
 	switch *output {
 	case "list":
-		printList(Package(*fromPkg), result)
+		printList(Package(fromPkg), result)
 		return nil
 	case "dot":
-		printDot(Package(*fromPkg), result)
+		printDot(Package(fromPkg), result)
 		return nil
 	default:
 		return fmt.Errorf("Unknown output format %q", *output)
@@ -102,11 +112,11 @@ func run() error {
 }
 
 func validateFlags() error {
-	if *fromPkg == "" {
+	if *from == "" {
 		return errors.New("-from must be set")
 	}
 
-	if *allPaths && *toPkg == "" {
+	if *allPaths && *to == "" {
 		return errors.New("-all-paths requires a -to package")
 	}
 

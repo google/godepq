@@ -8,6 +8,7 @@ https://opensource.org/licenses/MIT.
 
 package pkg
 
+// Package is the full import path of a Go package.
 type Package string
 
 const NullPackage Package = ""
