@@ -101,7 +101,6 @@ func (b *Builder) addPackage(pkgName Package) error {
 	}
 
 	pkgFullName := Package(pkg.ImportPath)
-	log.Printf("Found %s -> %s", pkgName, pkgFullName)
 	if b.isIgnored(pkgFullName) {
 		b.deps.Ignored.Insert(pkgFullName)
 		return nil
