@@ -55,9 +55,12 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	toPkg, err := Resolve(*to, wd, build.Default)
-	if err != nil {
-		return err
+	var toPkg string
+	if *to != "" {
+		toPkg, err = Resolve(*to, wd, build.Default)
+		if err != nil {
+			return err
+		}
 	}
 
 	builder := Builder{
