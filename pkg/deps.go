@@ -80,15 +80,13 @@ func (b *Builder) Build() (Dependencies, error) {
 
 func (b *Builder) addAllPackages(pkgs []Package) error {
 	for _, pkg := range pkgs {
-		if !b.isAccepted(pkg) {
-			log.Printf("Warning: ignoring root package %q", pkg)
-			b.deps.Ignored.Insert(pkg)
-			continue
-		}
-
 		// TODO: add support for recursive sub-packages.
-		if err := b.addPackage(pkg); err != nil {
+		included, err := b.addPackage(pkg)
+		if err != nil {
 			return err
+		}
+		if !included {
+			log.Printf("Warning: ignoring root package %q", pkg)
 		}
 	}
 	return nil
@@ -97,16 +95,21 @@ func (b *Builder) addAllPackages(pkgs []Package) error {
 var termination = errors.New("termination condition met")
 
 // Recursively adds a package to the accumulated dependency graph.
-func (b *Builder) addPackage(pkgName Package) error {
+func (b *Builder) addPackage(pkgName Package) (included bool, err error) {
 	pkg, err := b.BuildContext.Import(string(pkgName), b.BaseDir, 0)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	pkgFullName := Package(pkg.ImportPath)
-	if !b.isAccepted(pkgFullName) {
+	if !b.isAccepted(pkg) {
 		b.deps.Ignored.Insert(pkgFullName)
-		return nil
+		return false, nil
+	}
+
+	if b.deps.Forward.Has(pkgFullName) {
+		// Package was included, but we don't need to walk its deps again.
+		return true, nil
 	}
 
 	// Insert the package.
@@ -114,36 +117,24 @@ func (b *Builder) addPackage(pkgName Package) error {
 
 	for _, condition := range b.TerminationConditions {
 		if condition(b.deps) {
-			return termination
+			return true, termination
 		}
 	}
 
 	for _, imp := range b.getImports(pkg) {
-		if !b.isAccepted(imp) {
-			b.deps.Ignored.Insert(imp)
-			continue
-		}
-
-		impPkg, err := b.BuildContext.Import(string(imp), b.BaseDir, 0)
+		included, err := b.addPackage(imp)
 		if err != nil {
-			return err
+			return true, err
 		}
-
-		isImpStdlib := impPkg.Goroot
-		if isImpStdlib && !b.IncludeStdlib {
+		if !included {
+			// Package was not included, skip it.
 			continue
 		}
 
 		b.deps.Forward.Pkg(pkgFullName).Insert(imp)
-
-		// If imp has not been added, add it now.
-		if !b.deps.Forward.Has(imp) {
-			if err := b.addPackage(imp); err != nil {
-				return err
-			}
-		}
 	}
-	return nil
+
+	return true, nil
 }
 
 func (b *Builder) getImports(pkg *build.Package) []Package {
@@ -192,7 +183,14 @@ func (b *Builder) isIncluded(pkg Package) bool {
 	return false
 }
 
-// Detects if package name matches search criterias  
-func (b *Builder) isAccepted(pkg Package) bool {
-	return !b.isIgnored(pkg) && b.isIncluded(pkg)
+// Detects if package name matches search criterias
+func (b *Builder) isAccepted(pkg *build.Package) bool {
+	pkgFullName := Package(pkg.ImportPath)
+	if b.isIgnored(pkgFullName) {
+		return false
+	}
+	if pkg.Goroot && !b.IncludeStdlib {
+		return false
+	}
+	return b.isIncluded(pkgFullName)
 }
