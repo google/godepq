@@ -46,6 +46,9 @@ type Builder struct {
 	// Ignore any packages that match any of these patterns.
 	// Tested on the resolved package path.
 	Ignored []*regexp.Regexp
+	// Include only packages that match any of these patterns.
+	// Tested on the resolved package path.
+	Included []*regexp.Regexp
 	// Whether tests should be included in the dependencies.
 	IncludeTests bool
 	// Whether to include standard library packages
@@ -77,7 +80,7 @@ func (b *Builder) Build() (Dependencies, error) {
 
 func (b *Builder) addAllPackages(pkgs []Package) error {
 	for _, pkg := range pkgs {
-		if b.isIgnored(pkg) {
+		if !b.isAccepted(pkg) {
 			log.Printf("Warning: ignoring root package %q", pkg)
 			b.deps.Ignored.Insert(pkg)
 			continue
@@ -101,7 +104,7 @@ func (b *Builder) addPackage(pkgName Package) error {
 	}
 
 	pkgFullName := Package(pkg.ImportPath)
-	if b.isIgnored(pkgFullName) {
+	if !b.isAccepted(pkgFullName) {
 		b.deps.Ignored.Insert(pkgFullName)
 		return nil
 	}
@@ -116,8 +119,8 @@ func (b *Builder) addPackage(pkgName Package) error {
 	}
 
 	for _, imp := range b.getImports(pkg) {
-		if b.isIgnored(imp) {
-			b.deps.Ignored.Insert(pkgFullName)
+		if !b.isAccepted(imp) {
+			b.deps.Ignored.Insert(imp)
 			continue
 		}
 
@@ -175,4 +178,21 @@ func (b *Builder) isIgnored(pkg Package) bool {
 		}
 	}
 	return false
+}
+
+func (b *Builder) isIncluded(pkg Package) bool {
+	if len(b.Included) == 0 {
+		return true
+	}
+	for _, r := range b.Included {
+		if r.MatchString(string(pkg)) {
+			return true
+		}
+	}
+	return false
+}
+
+// Detects if package name matches search criterias  
+func (b *Builder) isAccepted(pkg Package) bool {
+	return !b.isIgnored(pkg) && b.isIncluded(pkg)
 }

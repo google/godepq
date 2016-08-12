@@ -7,6 +7,8 @@ Usage of godepq:
   -all-paths=false: whether to include all paths in the result
   -from="": root package
   -ignore="": regular expression for packages to ignore
+  -include="": regular expression for packages to include
+    (excluding packages matching -ignore)
   -include-stdlib=false: whether to include go standard library imports
   -include-tests=false: whether to include test imports
   -o="list": {list: print path(s), dot: export dot graph}
@@ -53,5 +55,16 @@ $ godepq -from k8s.io/kubernetes/cmd/hyperkube -to net/http/httptest -all-paths 
 ```
 
 ![example output](example.png)
+
+List imported packages, searching only packages which name starts with "k8s.io/kubernetes":
+```
+godepq -from k8s.io/kubernetes/pkg/kubelet -include="^k8s.io/kubernetes"
+Packages:
+  k8s.io/kubernetes/pkg/kubelet
+  k8s.io/kubernetes/pkg/kubelet/prober
+  k8s.io/kubernetes/pkg/kubelet/eviction
+  k8s.io/kubernetes/pkg/kubelet/util/queue
+  ...
+```
 
 *Note: This is not an official Google product.*

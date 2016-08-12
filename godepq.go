@@ -24,6 +24,7 @@ var (
 	from          = flag.String("from", "", "root package")
 	to            = flag.String("to", "", "target package for querying dependency paths")
 	ignore        = flag.String("ignore", "", "regular expression for packages to ignore")
+	include       = flag.String("include", "", "regular expression for packages to include (excluding packages matching -ignore)")
 	includeTests  = flag.Bool("include-tests", false, "whether to include test imports")
 	includeStdlib = flag.Bool("include-stdlib", false, "whether to include go standard library imports")
 	allPaths      = flag.Bool("all-paths", false, "whether to include all paths in the result")
@@ -79,6 +80,14 @@ func run() error {
 		builder.Ignored = []*regexp.Regexp{ignoreRegexp}
 	}
 
+	if *include != "" {
+		includeRegexp, err := regexp.Compile(*include)
+		if err != nil {
+			return err
+		}
+		builder.Included = []*regexp.Regexp{includeRegexp}
+	}
+
 	deps, err := builder.Build()
 	if err != nil {
 		return err
@@ -127,6 +136,9 @@ func validateFlags() error {
 		return fmt.Errorf("Unexpected positional arguments: %v", flag.Args())
 	}
 
+	if *ignore != "" && *ignore == *include {
+		return errors.New("-include can not be the same as -ignore")
+	}
 	return nil
 }
 
