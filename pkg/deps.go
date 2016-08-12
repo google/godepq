@@ -115,14 +115,19 @@ func (b *Builder) addPackage(pkgName Package) error {
 		}
 	}
 
-	isStdlib := pkg.Goroot
-	if isStdlib && !b.IncludeStdlib {
-		return nil // TODO - do we need to do anything else here?
-	}
-
 	for _, imp := range b.getImports(pkg) {
 		if b.isIgnored(imp) {
 			b.deps.Ignored.Insert(pkgFullName)
+			continue
+		}
+
+		impPkg, err := b.BuildContext.Import(string(imp), b.BaseDir, 0)
+		if err != nil {
+			return err
+		}
+
+		isImpStdlib := impPkg.Goroot
+		if isImpStdlib && !b.IncludeStdlib {
 			continue
 		}
 
