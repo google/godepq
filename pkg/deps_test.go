@@ -33,18 +33,21 @@ var (
 const basePkg = "github.com/google/godepq/testing"
 
 func TestBuildBare(t *testing.T) {
-	testBuildBasic(t, false, false)
+	deps := testBuildBasic(t, false, false)
+	assertSetsEqual(t, deps.Ignored, NewSet(Package("errors")), "Ignored")
 }
 
 func TestBuildWithStdlib(t *testing.T) {
-	testBuildBasic(t, true, false)
+	deps := testBuildBasic(t, true, false)
+	assert.Len(t, deps.Ignored, 0)
 }
 
 func TestBuildWithTests(t *testing.T) {
-	testBuildBasic(t, false, true)
+	deps := testBuildBasic(t, false, true)
+	assertSetsEqual(t, deps.Ignored, NewSet(Package("errors")), "Ignored")
 }
 
-func testBuildBasic(t *testing.T, includeStdlib, includeTests bool) {
+func testBuildBasic(t *testing.T, includeStdlib, includeTests bool) Dependencies {
 	deps, err := (&Builder{
 		Roots:         []Package{Package(basePkg)},
 		BuildContext:  build.Default,
@@ -53,7 +56,7 @@ func testBuildBasic(t *testing.T, includeStdlib, includeTests bool) {
 	}).Build()
 	assert.NoError(t, err)
 	assertGraphsEqual(t, deps.Forward, expectedGraph(includeStdlib, includeTests))
-	assert.Len(t, deps.Ignored, 0)
+	return deps
 }
 
 func TestIgnoreBasic(t *testing.T) {
@@ -73,7 +76,7 @@ func TestIgnoreBasic(t *testing.T) {
 	delete(expected.Pkg(mkpkg("")), mkpkg("b"))
 
 	assertGraphsEqual(t, deps.Forward, expected)
-	expectedIgnores := NewSet(mkpkg("b")) // Never reach "b/ba".
+	expectedIgnores := NewSet(mkpkg("b"), Package("errors")) // Never reach "b/ba".
 	assertSetsEqual(t, deps.Ignored, expectedIgnores, "Ignored")
 }
 
