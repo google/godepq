@@ -60,11 +60,6 @@ type Builder struct {
 	deps Dependencies
 }
 
-// Packages which should always be ignored.
-var pkgBlacklist = NewSet(
-	"C", // c imports, causes problems
-)
-
 func (b *Builder) Build() (Dependencies, error) {
 	b.deps = Dependencies{
 		Forward: NewGraph(),
@@ -96,6 +91,11 @@ var termination = errors.New("termination condition met")
 
 // Recursively adds a package to the accumulated dependency graph.
 func (b *Builder) addPackage(pkgName Package) (included bool, err error) {
+	// Ignore cgo imports
+	if pkgName == "C" {
+		return false, nil
+	}
+
 	pkg, err := b.BuildContext.Import(string(pkgName), b.BaseDir, 0)
 	if err != nil {
 		return false, err
@@ -160,9 +160,6 @@ func (b *Builder) getImports(pkg *build.Package) []Package {
 }
 
 func (b *Builder) isIgnored(pkg Package) bool {
-	if pkgBlacklist.Has(pkg) {
-		return true
-	}
 	for _, r := range b.Ignored {
 		if r.MatchString(string(pkg)) {
 			return true

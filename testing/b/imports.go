@@ -8,7 +8,10 @@ https://opensource.org/licenses/MIT.
 
 package b
 
+// cgo imports should be ignored.
 import (
+	"C"
+
 	_ "errors"
 
 	_ "github.com/google/godepq/testing/b/ba"
