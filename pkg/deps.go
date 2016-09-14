@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"go/build"
-	"log"
 	"os"
 	"regexp"
 	"strings"
@@ -78,12 +77,12 @@ func (b *Builder) Build() (Dependencies, error) {
 func (b *Builder) addAllPackages(pkgs []Package) error {
 	for _, pkg := range pkgs {
 		// TODO: add support for recursive sub-packages.
-		included, err := b.addPackage(pkg)
+		includedName, err := b.addPackage(pkg)
 		if err != nil {
 			return err
 		}
-		if !included {
-			log.Printf("Warning: ignoring root package %q", pkg)
+		if includedName == "" {
+			fmt.Fprintf(os.Stderr, "Warning: ignoring root package %q", pkg)
 		}
 	}
 	return nil
@@ -92,26 +91,27 @@ func (b *Builder) addAllPackages(pkgs []Package) error {
 var termination = errors.New("termination condition met")
 
 // Recursively adds a package to the accumulated dependency graph.
-func (b *Builder) addPackage(pkgName Package) (included bool, err error) {
+// If the package is not included, includedName will be empty.
+func (b *Builder) addPackage(pkgName Package) (includedName Package, err error) {
 	// Ignore cgo imports
 	if pkgName == "C" {
-		return false, nil
+		return "", nil
 	}
 
 	pkg, err := b.BuildContext.Import(string(pkgName), b.BaseDir, 0)
 	if err != nil {
-		return false, err
+		return "", err
 	}
 
 	pkgFullName := Package(stripVendor(pkg.ImportPath))
 	if !b.isAccepted(pkg) {
 		b.deps.Ignored.Insert(pkgFullName)
-		return false, nil
+		return "", nil
 	}
 
 	if b.deps.Forward.Has(pkgFullName) {
 		// Package was included, but we don't need to walk its deps again.
-		return true, nil
+		return pkgFullName, nil
 	}
 
 	// Insert the package.
@@ -119,24 +119,24 @@ func (b *Builder) addPackage(pkgName Package) (included bool, err error) {
 
 	for _, condition := range b.TerminationConditions {
 		if condition(b.deps) {
-			return true, termination
+			return pkgFullName, termination
 		}
 	}
 
 	for _, imp := range b.getImports(pkg) {
-		included, err := b.addPackage(imp)
+		includedName, err := b.addPackage(imp)
 		if err != nil {
-			return true, err
+			return pkgFullName, err
 		}
-		if !included {
+		if includedName == "" {
 			// Package was not included, skip it.
 			continue
 		}
 
-		b.deps.Forward.Pkg(pkgFullName).Insert(imp)
+		b.deps.Forward.Pkg(pkgFullName).Insert(includedName)
 	}
 
-	return true, nil
+	return pkgFullName, nil
 }
 
 func (b *Builder) getImports(pkg *build.Package) []Package {
