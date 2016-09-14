@@ -168,3 +168,14 @@ func assertSetsEqual(t *testing.T, actual, expected Set, ctx string) {
 		assert.Contains(t, expected, k, "[%s] Unexpected item %s", ctx, k)
 	}
 }
+
+func TestStripVendor(t *testing.T) {
+	tests := []struct{ path, expected string }{
+		{"github.com/google/godepq/vendor/github.com/google/cadvisor/manager", "github.com/google/cadvisor/manager"},
+		{"/vendor/github.com/google/cadvisor/manager", "github.com/google/cadvisor/manager"},
+		{"github.com/google/cadvisor/manager", "github.com/google/cadvisor/manager"},
+	}
+	for _, test := range tests {
+		assert.Equal(t, test.expected, stripVendor(test.path), "stripVendor(%s)", test.path)
+	}
+}

@@ -13,7 +13,9 @@ import (
 	"fmt"
 	"go/build"
 	"log"
+	"os"
 	"regexp"
+	"strings"
 )
 
 type Dependencies struct {
@@ -33,7 +35,7 @@ func Resolve(importPath, basePath string, bctx build.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("unable to resolve %q: %v", importPath, err)
 	}
-	return pkg.ImportPath, nil
+	return stripVendor(pkg.ImportPath), nil
 }
 
 type Builder struct {
@@ -101,7 +103,7 @@ func (b *Builder) addPackage(pkgName Package) (included bool, err error) {
 		return false, err
 	}
 
-	pkgFullName := Package(pkg.ImportPath)
+	pkgFullName := Package(stripVendor(pkg.ImportPath))
 	if !b.isAccepted(pkg) {
 		b.deps.Ignored.Insert(pkgFullName)
 		return false, nil
@@ -190,4 +192,12 @@ func (b *Builder) isAccepted(pkg *build.Package) bool {
 		return false
 	}
 	return b.isIncluded(pkgFullName)
+}
+
+func stripVendor(pkg string) string {
+	const vendor = string(os.PathSeparator) + "vendor" + string(os.PathSeparator)
+	if index := strings.LastIndex(string(pkg), vendor); index != -1 {
+		return pkg[index+len(vendor):]
+	}
+	return pkg
 }
