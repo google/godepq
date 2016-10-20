@@ -82,7 +82,7 @@ func (b *Builder) addAllPackages(pkgs []Package) error {
 			return err
 		}
 		if includedName == "" {
-			fmt.Fprintf(os.Stderr, "Warning: ignoring root package %q", pkg)
+			fmt.Fprintf(os.Stderr, "Warning: ignoring root package %q\n", pkg)
 		}
 	}
 	return nil
@@ -184,7 +184,7 @@ func (b *Builder) isIncluded(pkg Package) bool {
 
 // Detects if package name matches search criterias
 func (b *Builder) isAccepted(pkg *build.Package) bool {
-	pkgFullName := Package(pkg.ImportPath)
+	pkgFullName := Package(stripVendor(pkg.ImportPath))
 	if b.isIgnored(pkgFullName) {
 		return false
 	}
