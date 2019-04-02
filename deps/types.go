@@ -6,7 +6,7 @@ license that can be found in the LICENSE file or at
 https://opensource.org/licenses/MIT.
 */
 
-package pkg
+package deps
 
 // Package is the full import path of a Go package.
 type Package string

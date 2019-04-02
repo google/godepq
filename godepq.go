@@ -16,7 +16,7 @@ import (
 	"os"
 	"regexp"
 
-	. "github.com/google/godepq/pkg"
+	"github.com/google/godepq/deps"
 )
 
 var (
@@ -52,20 +52,20 @@ func run() error {
 		return err
 	}
 
-	fromPkg, err := Resolve(*from, wd, build.Default)
+	fromPkg, err := deps.Resolve(*from, wd, build.Default)
 	if err != nil {
 		return err
 	}
 	var toPkg string
 	if *to != "" {
-		toPkg, err = Resolve(*to, wd, build.Default)
+		toPkg, err = deps.Resolve(*to, wd, build.Default)
 		if err != nil {
 			return err
 		}
 	}
 
-	builder := Builder{
-		Roots:         []Package{Package(fromPkg)},
+	builder := deps.Builder{
+		Roots:         []deps.Package{deps.Package(fromPkg)},
 		IncludeTests:  *includeTests,
 		IncludeStdlib: *includeStdlib,
 		BuildContext:  build.Default,
@@ -88,22 +88,22 @@ func run() error {
 		builder.Included = []*regexp.Regexp{includeRegexp}
 	}
 
-	deps, err := builder.Build()
+	graph, err := builder.Build()
 	if err != nil {
 		return err
 	}
 
-	var result Graph
+	var result deps.Graph
 	if toPkg != "" {
 		if *allPaths {
-			result = deps.Forward.AllPaths(Package(fromPkg), Package(toPkg))
+			result = graph.Forward.AllPaths(deps.Package(fromPkg), deps.Package(toPkg))
 		} else {
-			path := deps.Forward.SomePath(Package(fromPkg), Package(toPkg))
-			result = NewGraph()
+			path := graph.Forward.SomePath(deps.Package(fromPkg), deps.Package(toPkg))
+			result = deps.NewGraph()
 			result.AddPath(path)
 		}
 	} else {
-		result = deps.Forward
+		result = graph.Forward
 	}
 
 	if result == nil || len(result) == 0 {
@@ -113,10 +113,10 @@ func run() error {
 
 	switch *output {
 	case "list":
-		printList(Package(fromPkg), result)
+		printList(deps.Package(fromPkg), result)
 		return nil
 	case "dot":
-		printDot(Package(fromPkg), result)
+		printDot(deps.Package(fromPkg), result)
 		return nil
 	default:
 		return fmt.Errorf("Unknown output format %q", *output)
@@ -142,13 +142,13 @@ func validateFlags() error {
 	return nil
 }
 
-func printList(root Package, paths Graph) {
+func printList(root deps.Package, paths deps.Graph) {
 	fmt.Println("Packages:")
 	for _, pkg := range paths.List(root) {
 		fmt.Printf("  %s\n", pkg)
 	}
 }
 
-func printDot(root Package, paths Graph) {
+func printDot(root deps.Package, paths deps.Graph) {
 	fmt.Println(paths.Dot(root))
 }
