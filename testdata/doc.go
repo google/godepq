@@ -6,7 +6,7 @@ license that can be found in the LICENSE file or at
 https://opensource.org/licenses/MIT.
 */
 
-// This package sets up an import DAG for testing purposes.
+// This package sets up an import DAG for testdata purposes.
 // The structure looks like:
 //        a          b         c
 //      /   \        |
@@ -15,4 +15,4 @@ https://opensource.org/licenses/MIT.
 //    aaa
 //
 // With every test depending on c, and every non-test depending on "errors".
-package testing
+package testdata

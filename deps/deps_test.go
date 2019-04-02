@@ -18,7 +18,7 @@ import (
 
 var (
 	// Expected import layout. All names (except stdDeps) are relative to
-	// "github.com/google/godepq/testing"
+	// "github.com/google/godepq/testdata"
 	expectations = map[string][]string{
 		"":         []string{"a", "b"},
 		"a":        []string{"a/aa", "a/ab"},
@@ -30,7 +30,7 @@ var (
 	}
 )
 
-const basePkg = "github.com/google/godepq/testing"
+const basePkg = "github.com/google/godepq/testdata"
 
 func TestBuildBare(t *testing.T) {
 	deps := testBuildBasic(t, false, false)

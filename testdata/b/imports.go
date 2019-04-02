@@ -6,9 +6,13 @@ license that can be found in the LICENSE file or at
 https://opensource.org/licenses/MIT.
 */
 
-package testing
+package b
 
+// cgo imports should be ignored.
 import (
-	_ "github.com/google/godepq/testing/a"
-	_ "github.com/google/godepq/testing/b"
+	"C"
+
+	_ "errors"
+
+	_ "github.com/google/godepq/testdata/b/ba"
 )
