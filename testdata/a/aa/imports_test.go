@@ -6,11 +6,8 @@ license that can be found in the LICENSE file or at
 https://opensource.org/licenses/MIT.
 */
 
-package a
+package aa
 
 import (
-	_ "errors"
-
-	_ "github.com/google/godepq/testing/a/aa"
-	_ "github.com/google/godepq/testing/a/ab"
+	_ "github.com/google/godepq/testdata/c"
 )

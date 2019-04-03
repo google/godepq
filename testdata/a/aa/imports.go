@@ -9,5 +9,7 @@ https://opensource.org/licenses/MIT.
 package aa
 
 import (
-	_ "github.com/google/godepq/testing/c"
+	_ "errors"
+
+	_ "github.com/google/godepq/testdata/a/aa/aaa"
 )
