@@ -124,7 +124,7 @@ func run() error {
 		if *toRegex != "" {
 			dst = *toRegex
 		}
-		fmt.Printf("No path found from %q to %q\n", fromPkg, dst)
+		fmt.Fprintf(os.Stderr, "No path found from %q to %q\n", fromPkg, dst)
 		os.Exit(1)
 	}
 
