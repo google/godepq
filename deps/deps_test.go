@@ -176,6 +176,6 @@ func TestStripVendor(t *testing.T) {
 		{"github.com/google/cadvisor/manager", "github.com/google/cadvisor/manager"},
 	}
 	for _, test := range tests {
-		assert.Equal(t, test.expected, stripVendor(test.path), "stripVendor(%s)", test.path)
+		assert.EqualValues(t, test.expected, stripVendor(test.path), "stripVendor(%s)", test.path)
 	}
 }

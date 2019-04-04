@@ -34,7 +34,7 @@ func Resolve(importPath, basePath string, bctx build.Context) (Package, error) {
 	if err != nil {
 		return "", fmt.Errorf("unable to resolve %q: %v", importPath, err)
 	}
-	return Package(stripVendor(pkg.ImportPath)), nil
+	return stripVendor(pkg.ImportPath), nil
 }
 
 type Builder struct {
@@ -103,7 +103,7 @@ func (b *Builder) addPackage(pkgName Package) (includedName Package, err error) 
 		return "", err
 	}
 
-	pkgFullName := Package(stripVendor(pkg.ImportPath))
+	pkgFullName := stripVendor(pkg.ImportPath)
 	if !b.isAccepted(pkg) {
 		b.deps.Ignored.Insert(pkgFullName)
 		return "", nil
@@ -184,7 +184,7 @@ func (b *Builder) isIncluded(pkg Package) bool {
 
 // Detects if package name matches search criterias
 func (b *Builder) isAccepted(pkg *build.Package) bool {
-	pkgFullName := Package(stripVendor(pkg.ImportPath))
+	pkgFullName := stripVendor(pkg.ImportPath)
 	if b.isIgnored(pkgFullName) {
 		return false
 	}
@@ -194,10 +194,15 @@ func (b *Builder) isAccepted(pkg *build.Package) bool {
 	return b.isIncluded(pkgFullName)
 }
 
-func stripVendor(pkg string) string {
+func StripVendor(pkg Package) (Package, bool) {
+	stripped := stripVendor(string(pkg))
+	return stripped, stripped != pkg
+}
+
+func stripVendor(pkg string) Package {
 	const vendor = string(os.PathSeparator) + "vendor" + string(os.PathSeparator)
 	if index := strings.LastIndex(string(pkg), vendor); index != -1 {
-		return pkg[index+len(vendor):]
+		return Package(pkg[index+len(vendor):])
 	}
-	return pkg
+	return Package(pkg)
 }
