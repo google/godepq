@@ -23,6 +23,7 @@ var (
 	// TODO: add support for multiple from / to packages
 	from          = flag.String("from", "", "root package")
 	to            = flag.String("to", "", "target package for querying dependency paths")
+	toRegex       = flag.String("toregex", "", "target package regex for querying dependency paths")
 	ignore        = flag.String("ignore", "", "regular expression for packages to ignore")
 	include       = flag.String("include", "", "regular expression for packages to include (excluding packages matching -ignore)")
 	includeTests  = flag.Bool("include-tests", false, "whether to include test imports")
@@ -56,7 +57,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	var toPkg string
+	var toPkg deps.Package
 	if *to != "" {
 		toPkg, err = deps.Resolve(*to, wd, build.Default)
 		if err != nil {
@@ -65,7 +66,7 @@ func run() error {
 	}
 
 	builder := deps.Builder{
-		Roots:         []deps.Package{deps.Package(fromPkg)},
+		Roots:         []deps.Package{fromPkg},
 		IncludeTests:  *includeTests,
 		IncludeStdlib: *includeStdlib,
 		BuildContext:  build.Default,
@@ -94,11 +95,23 @@ func run() error {
 	}
 
 	var result deps.Graph
+	var endCond func(deps.Package) bool
 	if toPkg != "" {
+		endCond = func(pkg deps.Package) bool {
+			return pkg == toPkg
+		}
+	} else if *toRegex != "" {
+		r := regexp.MustCompile(*toRegex)
+		endCond = func(pkg deps.Package) bool {
+			return r.MatchString(string(pkg))
+		}
+	}
+
+	if endCond != nil {
 		if *allPaths {
-			result = graph.Forward.AllPaths(deps.Package(fromPkg), deps.Package(toPkg))
+			result = graph.Forward.AllPathsCond(fromPkg, endCond)
 		} else {
-			path := graph.Forward.SomePath(deps.Package(fromPkg), deps.Package(toPkg))
+			path := graph.Forward.SomePathCond(fromPkg, endCond)
 			result = deps.NewGraph()
 			result.AddPath(path)
 		}
@@ -107,16 +120,20 @@ func run() error {
 	}
 
 	if result == nil || len(result) == 0 {
-		fmt.Printf("No path found from %q to %q\n", fromPkg, toPkg)
+		dst := string(toPkg)
+		if *toRegex != "" {
+			dst = *toRegex
+		}
+		fmt.Printf("No path found from %q to %q\n", fromPkg, dst)
 		os.Exit(1)
 	}
 
 	switch *output {
 	case "list":
-		printList(deps.Package(fromPkg), result)
+		printList(fromPkg, result)
 		return nil
 	case "dot":
-		printDot(deps.Package(fromPkg), result)
+		printDot(fromPkg, result)
 		return nil
 	default:
 		return fmt.Errorf("Unknown output format %q", *output)
@@ -128,12 +145,22 @@ func validateFlags() error {
 		return errors.New("-from must be set")
 	}
 
-	if *allPaths && *to == "" {
+	if *allPaths && *to == "" && *toRegex == "" {
 		return errors.New("-all-paths requires a -to package")
 	}
 
+	if *to != "" && *toRegex != "" {
+		return errors.New("only one of -to and -toregex may be set")
+	}
+
+	if *toRegex != "" {
+		if _, err := regexp.Compile(*toRegex); err != nil {
+			return fmt.Errorf("invalid -toregex: %v", err)
+		}
+	}
+
 	if len(flag.Args()) != 0 {
-		return fmt.Errorf("Unexpected positional arguments: %v", flag.Args())
+		return fmt.Errorf("unexpected positional arguments: %v", flag.Args())
 	}
 
 	if *ignore != "" && *ignore == *include {

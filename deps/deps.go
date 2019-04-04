@@ -29,12 +29,12 @@ type Condition func(Dependencies) bool
 // Resolve resolves import paths to a canonical, absolute form.
 // Relative paths are resolved relative to basePath.
 // It does not verify that the import is valid.
-func Resolve(importPath, basePath string, bctx build.Context) (string, error) {
+func Resolve(importPath, basePath string, bctx build.Context) (Package, error) {
 	pkg, err := bctx.Import(importPath, basePath, build.FindOnly)
 	if err != nil {
 		return "", fmt.Errorf("unable to resolve %q: %v", importPath, err)
 	}
-	return stripVendor(pkg.ImportPath), nil
+	return Package(stripVendor(pkg.ImportPath)), nil
 }
 
 type Builder struct {
