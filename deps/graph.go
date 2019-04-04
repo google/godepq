@@ -44,6 +44,7 @@ func (pg Graph) AddPath(path Path) {
 	}
 }
 
+// SomePath searches the graph for any path from start to end.
 func (pg Graph) SomePath(start, end Package) Path {
 	if _, ok := pg[start]; !ok {
 		return nil
@@ -51,9 +52,21 @@ func (pg Graph) SomePath(start, end Package) Path {
 		return nil
 	}
 
+	return pg.SomePathCond(start, func(pkg Package) bool {
+		return pkg == end
+	})
+}
+
+// SomePath searches the graph for any path from start to a package matching the
+// end condition.
+func (pg Graph) SomePathCond(start Package, endCond func(Package) bool) Path {
+	if _, ok := pg[start]; !ok {
+		return nil
+	}
+
 	var fullPath Path
 	walkFn := func(pkg Package, _ Set, path Path) bool {
-		if pkg == end {
+		if endCond(pkg) {
 			fullPath = path
 			return false
 		}
@@ -63,6 +76,7 @@ func (pg Graph) SomePath(start, end Package) Path {
 	return fullPath
 }
 
+// AllPaths searches the graph for all paths from start to end.
 func (pg Graph) AllPaths(start, end Package) Graph {
 	if _, ok := pg[start]; !ok {
 		return nil
@@ -70,9 +84,21 @@ func (pg Graph) AllPaths(start, end Package) Graph {
 		return nil
 	}
 
+	return pg.AllPathsCond(start, func(pkg Package) bool {
+		return pkg == end
+	})
+}
+
+// AllPathsCond searches the graph for all paths from start to a package
+// matching the end condition.
+func (pg Graph) AllPathsCond(start Package, endCond func(Package) bool) Graph {
+	if _, ok := pg[start]; !ok {
+		return nil
+	}
+
 	paths := NewGraph()
 	walkFn := func(pkg Package, edges Set, path Path) bool {
-		if pkg == end {
+		if endCond(pkg) {
 			paths.AddPath(path)
 			return true
 		}
@@ -87,6 +113,10 @@ func (pg Graph) AllPaths(start, end Package) Graph {
 	return paths
 }
 
+// WalkFn is the function used for graph searches.
+// pkg is the package currently being evaluated
+// edges is the set of edges from the current package
+// path is the path from the search start to the current package
 type WalkFn func(pkg Package, edges Set, path Path) (keepGoing bool)
 
 // Walk the graph depth first, starting at start and calling walkFn on each node visited.
