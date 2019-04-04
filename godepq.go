@@ -53,7 +53,7 @@ func run() error {
 		return err
 	}
 
-	fromPkg, err := deps.Resolve(*from, wd, build.Default)
+	fromPkg, baseDir, err := resolveSource(*from, wd)
 	if err != nil {
 		return err
 	}
@@ -70,7 +70,7 @@ func run() error {
 		IncludeTests:  *includeTests,
 		IncludeStdlib: *includeStdlib,
 		BuildContext:  build.Default,
-		BaseDir:       wd,
+		BaseDir:       baseDir,
 	}
 
 	if *ignore != "" {
@@ -178,4 +178,20 @@ func printList(root deps.Package, paths deps.Graph) {
 
 func printDot(root deps.Package, paths deps.Graph) {
 	fmt.Println(paths.Dot(root))
+}
+
+// resolveSource resolves the import path, and determines the base directory to resolve future
+// imports from.
+// If the resolved import is vendored, then future imports should use the same vendored sources.
+// Otherwise, future imports should be resolved with the source's vendor directory.
+func resolveSource(importPath, workingDir string) (deps.Package, string, error) {
+	pkg, err := build.Default.Import(importPath, workingDir, build.FindOnly)
+	if err != nil {
+		return "", "", fmt.Errorf("unable to resolve %q: %v", importPath, err)
+	}
+	src, vendored := deps.StripVendor(deps.Package(pkg.ImportPath))
+	if vendored {
+		return src, workingDir, nil
+	}
+	return src, pkg.Dir, nil
 }
