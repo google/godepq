@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"go/build"
 	"os"
-	"path"
 	"regexp"
 
 	"github.com/google/godepq/deps"
@@ -133,13 +132,17 @@ func run() error {
 	switch *output {
 	case "list":
 		if *showLinesOfCode {
-			printListWithLinesOfCode(fromPkg, result)
+			printListWithLOC(fromPkg, result, graph.Info)
 		} else {
 			printList(fromPkg, result)
 		}
 		return nil
 	case "dot":
-		printDot(fromPkg, result)
+		if *showLinesOfCode {
+			printDotWithLOC(fromPkg, result, graph.Info)
+		} else {
+			printDot(fromPkg, result)
+		}
 		return nil
 	default:
 		return fmt.Errorf("Unknown output format %q", *output)
@@ -182,23 +185,28 @@ func printList(root deps.Package, paths deps.Graph) {
 	}
 }
 
-func printListWithLinesOfCode(root deps.Package, paths deps.Graph) {
-	fmt.Println("Packages (with lines of code information):")
-	loc := deps.NewLinesOfCode()
+func printListWithLOC(root deps.Package, paths deps.Graph, pkgInfo map[deps.Package]*deps.DependencyInfo) {
+	totalLOC := 0
+	fmt.Println("Packages:")
 	for _, pkg := range paths.List(root) {
-		pkgPath := path.Join(
-			os.Getenv("GOPATH"),
-			"src",
-			string(pkg),
-			".",
-		)
-		loc.SetLinesOfCode(pkgPath)
-		fmt.Printf("%d  %s\n", loc[pkgPath], pkg)
+		fmt.Printf("%s (%d)\n", pkg, pkgInfo[pkg].LOC)
+		totalLOC +=  pkgInfo[pkg].LOC
 	}
+	fmt.Printf("\nTotal Lines Of Code: %d\n", totalLOC)
 }
 
 func printDot(root deps.Package, paths deps.Graph) {
-	fmt.Println(paths.Dot(root))
+	labelFn := func(pkg deps.Package) string {
+		return fmt.Sprintf("%s", pkg)
+	}
+	fmt.Println(paths.Dot(root, labelFn))
+}
+
+func printDotWithLOC(root deps.Package, paths deps.Graph, pkgInfo map[deps.Package]*deps.DependencyInfo) {
+	labelFn := func(pkg deps.Package) string {
+		return fmt.Sprintf("%s (%d)", pkg, pkgInfo[pkg].LOC)
+	}
+	fmt.Println(paths.Dot(root, labelFn))
 }
 
 // resolveSource resolves the import path, and determines the base directory to resolve future

@@ -65,12 +65,12 @@ func (pg Graph) SomePathCond(start Package, endCond func(Package) bool) Path {
 	}
 
 	var fullPath Path
-	walkFn := func(pkg Package, _ Set, path Path) bool {
+	walkFn := func(pkg Package, _ Set, path Path) (bool, bool) {
 		if endCond(pkg) {
 			fullPath = path
-			return false
+			return false, false
 		}
-		return true
+		return true, true
 	}
 	pg.DepthFirst(start, walkFn)
 	return fullPath
@@ -97,17 +97,17 @@ func (pg Graph) AllPathsCond(start Package, endCond func(Package) bool) Graph {
 	}
 
 	paths := NewGraph()
-	walkFn := func(pkg Package, edges Set, path Path) bool {
+	walkFn := func(pkg Package, edges Set, path Path) (bool, bool) {
 		if endCond(pkg) {
 			paths.AddPath(path)
-			return true
+			return false, true
 		}
 		for edge := range edges {
 			if paths.Has(edge) {
 				paths.AddPath(append(path, edge))
 			}
 		}
-		return true
+		return true, true
 	}
 	pg.DepthFirst(start, walkFn)
 	return paths
@@ -117,7 +117,7 @@ func (pg Graph) AllPathsCond(start Package, endCond func(Package) bool) Graph {
 // pkg is the package currently being evaluated
 // edges is the set of edges from the current package
 // path is the path from the search start to the current package
-type WalkFn func(pkg Package, edges Set, path Path) (keepGoing bool)
+type WalkFn func(pkg Package, edges Set, path Path) (followEdges, continueWalk bool)
 
 // Walk the graph depth first, starting at start and calling walkFn on each node visited.
 // Each node will be visited at most once.
@@ -127,7 +127,7 @@ func (pg Graph) DepthFirst(start Package, walkFn WalkFn) {
 	}
 
 	path := Path{start}
-	if !walkFn(start, pg[start], path) {
+	if f, c := walkFn(start, pg[start], path); !f || !c {
 		return
 	}
 
@@ -136,12 +136,17 @@ walk:
 	for len(path) > 0 {
 		for pkg := range pg[path.Last()] {
 			if !visited.Has(pkg) {
+				visited.Insert(pkg)
 				path = append(path, pkg)
-				if !walkFn(pkg, pg[pkg], path) {
+				followEdges, continueWalk := walkFn(pkg, pg[pkg], path)
+				if !continueWalk {
 					return
 				}
-				visited.Insert(pkg)
-				continue walk
+				if followEdges {
+					continue walk
+				} else {
+					path = path.Pop() // Backtrack.
+				}
 			}
 		}
 		path = path.Pop() // Backtrack.
@@ -152,6 +157,7 @@ walk:
 // node will be visited at most once. Nodes will be visited "depth last", where depth is defined as
 // the maximum distance from the start.
 // TODO: (if needed) add path to WalkFn
+// TODO: correctly handle !followEdges from WalkFn
 func (pg Graph) DepthLast(start Package, walkFn WalkFn) {
 	if _, ok := pg[start]; !ok {
 		return
@@ -189,7 +195,7 @@ func (pg Graph) DepthLast(start Package, walkFn WalkFn) {
 	for i := 0; i <= maxDepth; i++ {
 		for pkg, depth := range depths {
 			if depth == i {
-				if !walkFn(pkg, pg[pkg], nil) {
+				if _, continueWalk := walkFn(pkg, pg[pkg], nil); !continueWalk {
 					return
 				}
 			}
@@ -199,35 +205,35 @@ func (pg Graph) DepthLast(start Package, walkFn WalkFn) {
 
 func (pg Graph) List(root Package) []Package {
 	var pkgs []Package
-	pg.DepthLast(root, func(pkg Package, _ Set, _ Path) bool {
+	pg.DepthLast(root, func(pkg Package, _ Set, _ Path) (bool, bool) {
 		pkgs = append(pkgs, pkg)
-		return true
+		return true, true
 	})
 	return pkgs
 }
 
-func (pg Graph) Dot(root Package) string {
-	nextId := 0
+func (pg Graph) Dot(root Package, labelFn func(Package) string) string {
+	nextID := 0
 	ids := make(map[Package]int, len(pg))
-	getId := func(pkg Package) int {
+	getID := func(pkg Package) int {
 		if id, ok := ids[pkg]; ok {
 			return id
 		}
-		ids[pkg] = nextId
-		nextId++
-		return nextId - 1
+		ids[pkg] = nextID
+		nextID++
+		return nextID - 1
 	}
 
 	var buf bytes.Buffer
 	buf.WriteString("digraph godeps {\n")
 
-	pg.DepthFirst(root, func(pkg Package, edges Set, _ Path) bool {
-		pkgId := getId(pkg)
-		fmt.Fprintf(&buf, "%d [label=\"%s\"];\n", pkgId, pkg)
+	pg.DepthFirst(root, func(pkg Package, edges Set, _ Path) (bool, bool) {
+		pkgID := getID(pkg)
+		fmt.Fprintf(&buf, "%d [label=\"%s\"];\n", pkgID, labelFn(pkg))
 		for edge := range edges {
-			fmt.Fprintf(&buf, "%d -> %d;\n", pkgId, getId(edge))
+			fmt.Fprintf(&buf, "%d -> %d;\n", pkgID, getID(edge))
 		}
-		return true
+		return true, true
 	})
 
 	buf.WriteString("}\n")
