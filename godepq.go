@@ -133,7 +133,7 @@ func run() error {
 		printList(fromPkg, result)
 		return nil
 	case "dot":
-		printDot(fromPkg, result)
+		printDot(fromPkg, result, graph.Info)
 		return nil
 	default:
 		return fmt.Errorf("Unknown output format %q", *output)
@@ -176,8 +176,11 @@ func printList(root deps.Package, paths deps.Graph) {
 	}
 }
 
-func printDot(root deps.Package, paths deps.Graph) {
-	fmt.Println(paths.Dot(root))
+func printDot(root deps.Package, paths deps.Graph, pkgInfo map[deps.Package]*deps.DependencyInfo) {
+	labelFn := func(pkg deps.Package) string {
+		return fmt.Sprintf("%s (%d)", pkg, pkgInfo[pkg].LOC)
+	}
+	fmt.Println(paths.Dot(root, labelFn))
 }
 
 // resolveSource resolves the import path, and determines the base directory to resolve future

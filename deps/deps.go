@@ -9,10 +9,14 @@ https://opensource.org/licenses/MIT.
 package deps
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"go/build"
+	"io"
+	"log"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -22,6 +26,12 @@ type Dependencies struct {
 	Forward Graph
 	// Packages which were ignored.
 	Ignored Set
+	Info    map[Package]*DependencyInfo
+}
+
+type DependencyInfo struct {
+	LOC int
+	// TODO: Add recursive LOC (but don't double count packages)
 }
 
 type Condition func(Dependencies) bool
@@ -65,12 +75,14 @@ func (b *Builder) Build() (Dependencies, error) {
 	b.deps = Dependencies{
 		Forward: NewGraph(),
 		Ignored: NewSet(),
+		Info:    make(map[Package]*DependencyInfo),
 	}
 
 	err := b.addAllPackages(b.Roots)
 	if err == termination {
 		err = nil // Ignore termination condition.
 	}
+
 	return b.deps, err
 }
 
@@ -116,6 +128,10 @@ func (b *Builder) addPackage(pkgName Package) (includedName Package, err error) 
 
 	// Insert the package.
 	b.deps.Forward.Pkg(pkgFullName)
+
+	b.deps.Info[pkgFullName] = &DependencyInfo{
+		LOC: b.linesOfCode(pkg),
+	}
 
 	for _, condition := range b.TerminationConditions {
 		if condition(b.deps) {
@@ -205,4 +221,49 @@ func stripVendor(pkg string) Package {
 		return Package(pkg[index+len(vendor):])
 	}
 	return Package(pkg)
+}
+
+func (b *Builder) linesOfCode(pkg *build.Package) int {
+	loc := 0
+	files := append([]string{}, pkg.GoFiles...)
+	// TODO: Should we also include the c source files?
+	files = append(files, pkg.CgoFiles...)
+	if b.IncludeTests {
+		files = append(files, pkg.TestGoFiles...)
+		files = append(files, pkg.XTestGoFiles...)
+	}
+	for _, f := range files {
+		l, err := countLines(filepath.Join(pkg.Dir, f))
+		if err != nil {
+			log.Printf("ERROR: %v", err)
+			continue
+		}
+		loc += l
+	}
+	return loc
+}
+
+func countLines(file string) (int, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+
+	buf := make([]byte, 32*1024)
+	count := 0
+	lineSep := []byte{'\n'}
+
+	for {
+		c, err := f.Read(buf)
+		count += bytes.Count(buf[:c], lineSep)
+
+		switch {
+		case err == io.EOF:
+			return count, nil
+
+		case err != nil:
+			return count, err
+		}
+	}
 }

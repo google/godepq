@@ -212,7 +212,7 @@ func (pg Graph) List(root Package) []Package {
 	return pkgs
 }
 
-func (pg Graph) Dot(root Package) string {
+func (pg Graph) Dot(root Package, labelFn func(Package) string) string {
 	nextID := 0
 	ids := make(map[Package]int, len(pg))
 	getID := func(pkg Package) int {
@@ -229,7 +229,7 @@ func (pg Graph) Dot(root Package) string {
 
 	pg.DepthFirst(root, func(pkg Package, edges Set, _ Path) (bool, bool) {
 		pkgID := getID(pkg)
-		fmt.Fprintf(&buf, "%d [label=\"%s\"];\n", pkgID, pkg)
+		fmt.Fprintf(&buf, "%d [label=\"%s\"];\n", pkgID, labelFn(pkg))
 		for edge := range edges {
 			fmt.Fprintf(&buf, "%d -> %d;\n", pkgID, getID(edge))
 		}
