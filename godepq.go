@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"go/build"
 	"os"
+	"path"
 	"regexp"
 
 	"github.com/google/godepq/deps"
@@ -21,15 +22,16 @@ import (
 
 var (
 	// TODO: add support for multiple from / to packages
-	from          = flag.String("from", "", "root package")
-	to            = flag.String("to", "", "target package for querying dependency paths")
-	toRegex       = flag.String("toregex", "", "target package regex for querying dependency paths")
-	ignore        = flag.String("ignore", "", "regular expression for packages to ignore")
-	include       = flag.String("include", "", "regular expression for packages to include (excluding packages matching -ignore)")
-	includeTests  = flag.Bool("include-tests", false, "whether to include test imports")
-	includeStdlib = flag.Bool("include-stdlib", false, "whether to include go standard library imports")
-	allPaths      = flag.Bool("all-paths", false, "whether to include all paths in the result")
-	output        = flag.String("o", "list", "{list: print path(s), dot: export dot graph}")
+	from            = flag.String("from", "", "root package")
+	to              = flag.String("to", "", "target package for querying dependency paths")
+	toRegex         = flag.String("toregex", "", "target package regex for querying dependency paths")
+	ignore          = flag.String("ignore", "", "regular expression for packages to ignore")
+	include         = flag.String("include", "", "regular expression for packages to include (excluding packages matching -ignore)")
+	includeTests    = flag.Bool("include-tests", false, "whether to include test imports")
+	includeStdlib   = flag.Bool("include-stdlib", false, "whether to include go standard library imports")
+	allPaths        = flag.Bool("all-paths", false, "whether to include all paths in the result")
+	output          = flag.String("o", "list", "{list: print path(s), dot: export dot graph}")
+	showLinesOfCode = flag.Bool("show-loc", false, "show lines of code per package")
 )
 
 func main() {
@@ -130,7 +132,11 @@ func run() error {
 
 	switch *output {
 	case "list":
-		printList(fromPkg, result)
+		if *showLinesOfCode {
+			printListWithLinesOfCode(fromPkg, result)
+		} else {
+			printList(fromPkg, result)
+		}
 		return nil
 	case "dot":
 		printDot(fromPkg, result)
@@ -173,6 +179,21 @@ func printList(root deps.Package, paths deps.Graph) {
 	fmt.Println("Packages:")
 	for _, pkg := range paths.List(root) {
 		fmt.Printf("  %s\n", pkg)
+	}
+}
+
+func printListWithLinesOfCode(root deps.Package, paths deps.Graph) {
+	fmt.Println("Packages (with lines of code information):")
+	loc := deps.NewLinesOfCode()
+	for _, pkg := range paths.List(root) {
+		pkgPath := path.Join(
+			os.Getenv("GOPATH"),
+			"src",
+			string(pkg),
+			".",
+		)
+		loc.SetLinesOfCode(pkgPath)
+		fmt.Printf("%d  %s\n", loc[pkgPath], pkg)
 	}
 }
 
