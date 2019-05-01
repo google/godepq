@@ -21,15 +21,16 @@ import (
 
 var (
 	// TODO: add support for multiple from / to packages
-	from          = flag.String("from", "", "root package")
-	to            = flag.String("to", "", "target package for querying dependency paths")
-	toRegex       = flag.String("toregex", "", "target package regex for querying dependency paths")
-	ignore        = flag.String("ignore", "", "regular expression for packages to ignore")
-	include       = flag.String("include", "", "regular expression for packages to include (excluding packages matching -ignore)")
-	includeTests  = flag.Bool("include-tests", false, "whether to include test imports")
-	includeStdlib = flag.Bool("include-stdlib", false, "whether to include go standard library imports")
-	allPaths      = flag.Bool("all-paths", false, "whether to include all paths in the result")
-	output        = flag.String("o", "list", "{list: print path(s), dot: export dot graph}")
+	from            = flag.String("from", "", "root package")
+	to              = flag.String("to", "", "target package for querying dependency paths")
+	toRegex         = flag.String("toregex", "", "target package regex for querying dependency paths")
+	ignore          = flag.String("ignore", "", "regular expression for packages to ignore")
+	include         = flag.String("include", "", "regular expression for packages to include (excluding packages matching -ignore)")
+	includeTests    = flag.Bool("include-tests", false, "whether to include test imports")
+	includeStdlib   = flag.Bool("include-stdlib", false, "whether to include go standard library imports")
+	allPaths        = flag.Bool("all-paths", false, "whether to include all paths in the result")
+	output          = flag.String("o", "list", "{list: print path(s), dot: export dot graph}")
+	showLinesOfCode = flag.Bool("show-loc", false, "show lines of code per package")
 )
 
 func main() {
@@ -130,10 +131,18 @@ func run() error {
 
 	switch *output {
 	case "list":
-		printList(fromPkg, result)
+		if *showLinesOfCode {
+			printListWithLOC(fromPkg, result, graph.Info)
+		} else {
+			printList(fromPkg, result)
+		}
 		return nil
 	case "dot":
-		printDot(fromPkg, result)
+		if *showLinesOfCode {
+			printDotWithLOC(fromPkg, result, graph.Info)
+		} else {
+			printDot(fromPkg, result)
+		}
 		return nil
 	default:
 		return fmt.Errorf("Unknown output format %q", *output)
@@ -176,8 +185,28 @@ func printList(root deps.Package, paths deps.Graph) {
 	}
 }
 
+func printListWithLOC(root deps.Package, paths deps.Graph, pkgInfo map[deps.Package]*deps.DependencyInfo) {
+	totalLOC := 0
+	fmt.Println("Packages:")
+	for _, pkg := range paths.List(root) {
+		fmt.Printf("%s (%d)\n", pkg, pkgInfo[pkg].LOC)
+		totalLOC +=  pkgInfo[pkg].LOC
+	}
+	fmt.Printf("\nTotal Lines Of Code: %d\n", totalLOC)
+}
+
 func printDot(root deps.Package, paths deps.Graph) {
-	fmt.Println(paths.Dot(root))
+	labelFn := func(pkg deps.Package) string {
+		return fmt.Sprintf("%s", pkg)
+	}
+	fmt.Println(paths.Dot(root, labelFn))
+}
+
+func printDotWithLOC(root deps.Package, paths deps.Graph, pkgInfo map[deps.Package]*deps.DependencyInfo) {
+	labelFn := func(pkg deps.Package) string {
+		return fmt.Sprintf("%s (%d)", pkg, pkgInfo[pkg].LOC)
+	}
+	fmt.Println(paths.Dot(root, labelFn))
 }
 
 // resolveSource resolves the import path, and determines the base directory to resolve future

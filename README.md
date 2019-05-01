@@ -27,26 +27,22 @@ List the packages imported:
 ```
 $ godepq -from github.com/google/godepq
 Packages:
-  github.com/google/godepq
-  flag
-  github.com/google/godepq/pkg
-  fmt
-  os
-  errors
-  go/build
-  regexp
-  log
+github.com/google/godepq
+github.com/google/godepq/deps
 ```
 
 Find a path between two packages:
 ```
 $ godepq -from k8s.io/kubernetes/pkg/kubelet -to k8s.io/kubernetes/pkg/master
 No path found from "k8s.io/kubernetes/pkg/kubelet" to "k8s.io/kubernetes/pkg/master"
+
 $ godepq -from k8s.io/kubernetes/pkg/kubelet -to k8s.io/kubernetes/pkg/credentialprovider
 Packages:
-  k8s.io/kubernetes/pkg/kubelet
-  k8s.io/kubernetes/pkg/kubelet/rkt
-  k8s.io/kubernetes/pkg/credentialprovider
+k8s.io/kubernetes/pkg/kubelet
+k8s.io/kubernetes/pkg/kubelet/dockershim/remote
+k8s.io/kubernetes/pkg/kubelet/dockershim
+k8s.io/kubernetes/pkg/kubelet/kuberuntime
+k8s.io/kubernetes/pkg/credentialprovider
 ```
 
 Track down how a test package is being pulled into a production binary:
@@ -58,13 +54,15 @@ $ godepq -from k8s.io/kubernetes/cmd/hyperkube -to net/http/httptest -all-paths 
 
 List imported packages, searching only packages which name starts with "k8s.io/kubernetes":
 ```
-godepq -from k8s.io/kubernetes/pkg/kubelet -include="^k8s.io/kubernetes"
+$ godepq -from k8s.io/kubernetes/pkg/kubelet -include="^k8s.io/kubernetes" -show-loc
 Packages:
-  k8s.io/kubernetes/pkg/kubelet
-  k8s.io/kubernetes/pkg/kubelet/prober
-  k8s.io/kubernetes/pkg/kubelet/eviction
-  k8s.io/kubernetes/pkg/kubelet/util/queue
-  ...
+k8s.io/kubernetes/pkg/kubelet (6908)
+k8s.io/kubernetes/pkg/kubelet/token (175)
+k8s.io/kubernetes/pkg/util/removeall (108)
+k8s.io/kubernetes/pkg/kubelet/nodestatus (764)
+...
+...
+Total Lines Of Code: 133943
 ```
 
 *Note: This is not an official Google product.*
